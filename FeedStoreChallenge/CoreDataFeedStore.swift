@@ -7,9 +7,14 @@
 //
 
 import Foundation
+import CoreData
 
 public final class CoreDataFeedStore: FeedStore {
-	public init() {}
+	
+	private let container: NSPersistentContainer
+	public init(bundle: Bundle = .main) throws {
+		container = try NSPersistentContainer.load(modelName: "FeedStoreChallenge", from: bundle)
+	}
 	
 	public func deleteCachedFeed(completion: @escaping DeletionCompletion) {
 	}
@@ -19,5 +24,33 @@ public final class CoreDataFeedStore: FeedStore {
 	
 	public func retrieve(completion: @escaping RetrievalCompletion) {
 		completion(.empty)
+	}
+}
+
+private extension NSPersistentContainer {
+	enum CoreDataFeedStoreError: Error {
+		case modelNotFound
+		case persistanceStoreError(Error)
+	}
+	
+	static func load(modelName: String, from bundle: Bundle) throws -> NSPersistentContainer {
+		guard let model = NSManagedObjectModel.with(name: modelName, in: bundle) else {
+			throw CoreDataFeedStoreError.modelNotFound
+		}
+		
+		let container = NSPersistentContainer(name: modelName, managedObjectModel: model)
+		var persistanceStoreError: Error?
+		container.loadPersistentStores { persistanceStoreError = $1 }
+		try persistanceStoreError.map { throw CoreDataFeedStoreError.persistanceStoreError($0) }
+		
+		return container
+	}
+}
+
+private extension NSManagedObjectModel {
+	
+	static func with(name: String, in bundle: Bundle) -> NSManagedObjectModel? {
+		bundle.url(forResource: name, withExtension: "momd")
+			.flatMap(NSManagedObjectModel.init(contentsOf:))
 	}
 }
